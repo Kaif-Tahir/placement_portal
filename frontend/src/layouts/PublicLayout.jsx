@@ -1,0 +1,58 @@
+import { Outlet } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+
+const PublicLayout = () => {
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm">
+                <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center">
+                            <Link to="/" className="flex items-center space-x-2">
+                                <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center">
+                                    <span className="text-white font-bold text-xl">C</span>
+                                </div>
+                                <span className="text-2xl font-display font-bold text-gray-900">
+                                    Career<span className="text-primary-600">OS</span>
+                                </span>
+                            </Link>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                            <Link
+                                to="/login"
+                                className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
+                            >
+                                Sign In
+                            </Link>
+                            <Link
+                                to="/register"
+                                className="btn-primary btn-md"
+                            >
+                                Get Started
+                            </Link>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+
+            {/* Main Content */}
+            <main>
+                <Outlet />
+            </main>
+
+            {/* Footer */}
+            <footer className="bg-white border-t mt-20">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="text-center text-gray-600">
+                        <p>&copy; {new Date().getFullYear()} CareerOS. All rights reserved.</p>
+                        <p className="mt-2 text-sm">Smart Placement & Internship Management Platform</p>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    );
+};
+
+export default PublicLayout;
