@@ -37,7 +37,7 @@ import ManageRecruiters from '@pages/admin/ManageRecruiters';
 import PlacementAnalytics from '@pages/admin/PlacementAnalytics';
 import Reports from '@pages/admin/Reports';
 
-// Protected Route Component
+// Protected Route Component called ProtectedRoute
 const ProtectedRoute = ({ children, allowedRoles }) => {
     const { user, userProfile, loading } = useAuth();
 
