@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@config/firebase';
@@ -66,6 +66,57 @@ const DEFAULT_WORKFLOW_STAGES = [
     'Rejected',
 ];
 
+// Section Card Component (defined outside PostJob to keep a stable reference)
+const SectionCard = ({ title, children, icon }) => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                {icon && <span className="text-blue-600">{icon}</span>}
+                {title}
+            </h2>
+        </div>
+        <div className="p-6">{children}</div>
+    </div>
+);
+
+// Multi-Select Field Component (defined outside PostJob — uses useWatch so only this component re-renders)
+const MultiSelectField = ({ label, name, options, required, control, setValue, errors }) => {
+    const selectedValues = useWatch({ control, name }) || [];
+
+    const toggleOption = (option) => {
+        const newValues = selectedValues.includes(option)
+            ? selectedValues.filter((v) => v !== option)
+            : [...selectedValues, option];
+        setValue(name, newValues, { shouldValidate: false });
+    };
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="flex flex-wrap gap-2">
+                {options.map((option) => (
+                    <button
+                        key={option}
+                        type="button"
+                        onClick={() => toggleOption(option)}
+                        className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${selectedValues.includes(option)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            }`}
+                    >
+                        {option}
+                    </button>
+                ))}
+            </div>
+            {required && selectedValues.length === 0 && errors?.[name] && (
+                <p className="text-sm text-red-500">Please select at least one option</p>
+            )}
+        </div>
+    );
+};
+
 const PostJob = () => {
     const navigate = useNavigate();
     const { user, userProfile } = useAuth();
@@ -75,12 +126,33 @@ const PostJob = () => {
     const [attachments, setAttachments] = useState({ jobDescriptionPDF: null, companyBrochure: null });
     const [submitError, setSubmitError] = useState(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [previewFile, setPreviewFile] = useState(null); // which file to preview: 'jd' | 'brochure' | null
+
+    // Generate object URLs for local PDF preview
+    const jdPreviewUrl = useMemo(() => {
+        if (attachments.jobDescriptionPDF) return URL.createObjectURL(attachments.jobDescriptionPDF);
+        return null;
+    }, [attachments.jobDescriptionPDF]);
+
+    const brochurePreviewUrl = useMemo(() => {
+        if (attachments.companyBrochure) return URL.createObjectURL(attachments.companyBrochure);
+        return null;
+    }, [attachments.companyBrochure]);
+
+    // Revoke object URLs on cleanup to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (jdPreviewUrl) URL.revokeObjectURL(jdPreviewUrl);
+            if (brochurePreviewUrl) URL.revokeObjectURL(brochurePreviewUrl);
+        };
+    }, [jdPreviewUrl, brochurePreviewUrl]);
 
     const {
         register,
         handleSubmit,
         watch,
         setValue,
+        control,
         formState: { errors },
     } = useForm({
         defaultValues: {
@@ -151,6 +223,11 @@ const PostJob = () => {
         if (file) {
             setAttachments((prev) => ({ ...prev, [type]: file }));
         }
+    };
+
+    // Remove a selected file
+    const removeFile = (type) => {
+        setAttachments((prev) => ({ ...prev, [type]: null }));
     };
 
     // Form submission handler
@@ -268,18 +345,7 @@ const PostJob = () => {
         }
     };
 
-    // Section Card Component
-    const SectionCard = ({ title, children, icon }) => (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    {icon && <span className="text-blue-600">{icon}</span>}
-                    {title}
-                </h2>
-            </div>
-            <div className="p-6">{children}</div>
-        </div>
-    );
+
 
     // Input Field Component
     const InputField = ({ label, name, type = 'text', required, placeholder, disabled, ...rest }) => (
@@ -351,43 +417,7 @@ const PostJob = () => {
         </label>
     );
 
-    // Multi-Select Field Component
-    const MultiSelectField = ({ label, name, options, required }) => {
-        const selectedValues = watch(name) || [];
 
-        const toggleOption = (option) => {
-            const newValues = selectedValues.includes(option)
-                ? selectedValues.filter((v) => v !== option)
-                : [...selectedValues, option];
-            setValue(name, newValues);
-        };
-
-        return (
-            <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                    {label} {required && <span className="text-red-500">*</span>}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                    {options.map((option) => (
-                        <button
-                            key={option}
-                            type="button"
-                            onClick={() => toggleOption(option)}
-                            className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${selectedValues.includes(option)
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                                }`}
-                        >
-                            {option}
-                        </button>
-                    ))}
-                </div>
-                {required && selectedValues.length === 0 && errors[name] && (
-                    <p className="text-sm text-red-500">Please select at least one option</p>
-                )}
-            </div>
-        );
-    };
 
     if (!userProfile) {
         return (
@@ -618,7 +648,7 @@ const PostJob = () => {
                                 <CheckboxField label="Backlogs Allowed" name="backlogAllowed" />
                             </div>
                         </div>
-                        <MultiSelectField label="Eligible Branches" name="branches" options={BRANCHES} />
+                        <MultiSelectField label="Eligible Branches" name="branches" options={BRANCHES} control={control} setValue={setValue} errors={errors} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <InputField
                                 label="Required Skill Tags"
@@ -663,11 +693,7 @@ const PostJob = () => {
                                 <CheckboxField label="Cover Letter Required" name="coverLetterRequired" />
                             </div>
                         </div>
-                        <MultiSelectField
-                            label="Selection Process"
-                            name="selectionProcess"
-                            options={SELECTION_PROCESS_OPTIONS}
-                        />
+                        <MultiSelectField label="Selection Process" name="selectionProcess" options={SELECTION_PROCESS_OPTIONS} control={control} setValue={setValue} errors={errors} />
                     </div>
                 </SectionCard>
 
@@ -711,77 +737,133 @@ const PostJob = () => {
                     }
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Job Description PDF */}
                         <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">Job Description PDF</label>
-                            <div className="flex items-center gap-4">
-                                <label className="flex-1 flex items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                                    <div className="text-center">
-                                        <svg
-                                            className="mx-auto h-8 w-8 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
+                            {attachments.jobDescriptionPDF ? (
+                                <div className="border-2 border-green-300 bg-green-50 rounded-xl p-5 transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-green-800 truncate">{attachments.jobDescriptionPDF.name}</p>
+                                            <p className="text-xs text-green-600 mt-0.5">
+                                                {(attachments.jobDescriptionPDF.size / 1024).toFixed(1)} KB &middot; PDF uploaded successfully
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewFile('jd')}
+                                            className="flex-shrink-0 p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+                                            title="Preview PDF"
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                            />
-                                        </svg>
-                                        <p className="mt-1 text-sm text-gray-600">
-                                            {attachments.jobDescriptionPDF
-                                                ? attachments.jobDescriptionPDF.name
-                                                : 'Click to upload JD (PDF)'}
-                                        </p>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeFile('jobDescriptionPDF')}
+                                            className="flex-shrink-0 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+                                            title="Remove file"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
+                                    {uploadProgress.jd && (
+                                        <div className="mt-3">
+                                            <div className="w-full bg-green-200 rounded-full h-1.5">
+                                                <div className="bg-green-600 h-1.5 rounded-full animate-pulse w-2/3"></div>
+                                            </div>
+                                            <p className="text-xs text-green-700 mt-1">Uploading...</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <label className="relative block border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+                                    <svg className="mx-auto h-10 w-10 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <p className="mt-2 text-sm font-medium text-gray-700 group-hover:text-blue-600">Drop your JD here or click to browse</p>
+                                    <p className="mt-1 text-xs text-gray-500">PDF format &middot; Max 10MB</p>
                                     <input
                                         type="file"
                                         accept=".pdf"
                                         onChange={(e) => handleFileChange(e, 'jobDescriptionPDF')}
-                                        className="hidden"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
                                 </label>
-                            </div>
-                            {uploadProgress.jd && (
-                                <p className="text-sm text-blue-600">Uploading JD...</p>
                             )}
                         </div>
 
+                        {/* Company Brochure */}
                         <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">Company Brochure</label>
-                            <div className="flex items-center gap-4">
-                                <label className="flex-1 flex items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                                    <div className="text-center">
-                                        <svg
-                                            className="mx-auto h-8 w-8 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
+                            {attachments.companyBrochure ? (
+                                <div className="border-2 border-green-300 bg-green-50 rounded-xl p-5 transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-green-800 truncate">{attachments.companyBrochure.name}</p>
+                                            <p className="text-xs text-green-600 mt-0.5">
+                                                {(attachments.companyBrochure.size / 1024).toFixed(1)} KB &middot; PDF uploaded successfully
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewFile('brochure')}
+                                            className="flex-shrink-0 p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+                                            title="Preview PDF"
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                            />
-                                        </svg>
-                                        <p className="mt-1 text-sm text-gray-600">
-                                            {attachments.companyBrochure
-                                                ? attachments.companyBrochure.name
-                                                : 'Click to upload Brochure (PDF)'}
-                                        </p>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeFile('companyBrochure')}
+                                            className="flex-shrink-0 p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+                                            title="Remove file"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
+                                    {uploadProgress.brochure && (
+                                        <div className="mt-3">
+                                            <div className="w-full bg-green-200 rounded-full h-1.5">
+                                                <div className="bg-green-600 h-1.5 rounded-full animate-pulse w-2/3"></div>
+                                            </div>
+                                            <p className="text-xs text-green-700 mt-1">Uploading...</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <label className="relative block border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+                                    <svg className="mx-auto h-10 w-10 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <p className="mt-2 text-sm font-medium text-gray-700 group-hover:text-blue-600">Drop your brochure here or click to browse</p>
+                                    <p className="mt-1 text-xs text-gray-500">PDF format &middot; Max 10MB</p>
                                     <input
                                         type="file"
                                         accept=".pdf"
                                         onChange={(e) => handleFileChange(e, 'companyBrochure')}
-                                        className="hidden"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
                                 </label>
-                            </div>
-                            {uploadProgress.brochure && (
-                                <p className="text-sm text-blue-600">Uploading brochure...</p>
                             )}
                         </div>
                     </div>
@@ -866,6 +948,49 @@ const PostJob = () => {
                     </div>
                 </div>
             </form>
+
+            {/* PDF Preview Modal */}
+            {previewFile && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[85vh] flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                {previewFile === 'jd' ? 'Job Description Preview' : 'Company Brochure Preview'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setPreviewFile(null)}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden bg-gray-100">
+                            <iframe
+                                src={previewFile === 'jd' ? jdPreviewUrl : brochurePreviewUrl}
+                                title={previewFile === 'jd' ? 'Job Description Preview' : 'Company Brochure Preview'}
+                                className="w-full h-full border-0"
+                            />
+                        </div>
+                        <div className="p-3 border-t bg-gray-50 flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                                {previewFile === 'jd'
+                                    ? attachments.jobDescriptionPDF?.name
+                                    : attachments.companyBrochure?.name}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setPreviewFile(null)}
+                                className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
