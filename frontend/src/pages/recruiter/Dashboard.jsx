@@ -211,7 +211,7 @@ const RecruiterDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Recent Applications</h2>
-            <Link to="/recruiter/manage-jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            <Link to="/recruiter/jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
               View All →
             </Link>
           </div>
@@ -249,7 +249,7 @@ const RecruiterDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Your Job Postings</h2>
-            <Link to="/recruiter/manage-jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            <Link to="/recruiter/jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
               Manage →
             </Link>
           </div>

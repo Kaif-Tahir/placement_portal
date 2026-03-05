@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, serverTimestamp, onSnapshot, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '@config/firebase';
-import { COLLECTIONS, JOB_TYPE_LABELS, STATUS_LABELS, STATUS_COLORS } from '@config/constants';
+import { COLLECTIONS, JOB_TYPE_LABELS, STATUS_LABELS, STATUS_COLORS, APPLICATION_STATUS } from '@config/constants';
 import { useAuth } from '@context/AuthContext';
 
 const ManageJobs = () => {
@@ -23,6 +23,11 @@ const ManageJobs = () => {
     const [applicants, setApplicants] = useState([]);
     const [loadingApplicants, setLoadingApplicants] = useState(false);
     const [selectedApplicant, setSelectedApplicant] = useState(null);
+
+    // Shortlisting mode state
+    const [shortlistMode, setShortlistMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [shortlisting, setShortlisting] = useState(false);
 
     // Real-time application counts per job
     const [appCounts, setAppCounts] = useState({});
@@ -257,6 +262,83 @@ const ManageJobs = () => {
         setSelectedJob(null);
         setApplicants([]);
         setSelectedApplicant(null);
+        setShortlistMode(false);
+        setSelectedIds(new Set());
+    };
+
+    // Toggle shortlisting mode
+    const toggleShortlistMode = () => {
+        setShortlistMode((prev) => !prev);
+        setSelectedIds(new Set());
+    };
+
+    // Toggle single applicant selection
+    const toggleSelectApplicant = (appId) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(appId)) {
+                next.delete(appId);
+            } else {
+                next.add(appId);
+            }
+            return next;
+        });
+    };
+
+    // Select / deselect all applicants
+    const eligibleForShortlist = applicants;
+    const allEligibleSelected = eligibleForShortlist.length > 0 && eligibleForShortlist.every(a => selectedIds.has(a.id));
+
+    const toggleSelectAll = () => {
+        if (allEligibleSelected) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(eligibleForShortlist.map(a => a.id)));
+        }
+    };
+
+    // Batch shortlist selected applicants
+    const handleBatchShortlist = async () => {
+        if (selectedIds.size === 0) {
+            // No selections — just exit shortlisting mode
+            setShortlistMode(false);
+            return;
+        }
+
+        try {
+            setShortlisting(true);
+            const batch = writeBatch(db);
+
+            for (const appId of selectedIds) {
+                const appRef = doc(db, COLLECTIONS.APPLICATIONS, appId);
+                const appDoc = await getDoc(appRef);
+                if (appDoc.exists()) {
+                    const currentData = appDoc.data();
+                    const statusHistory = currentData.statusHistory || [];
+                    batch.update(appRef, {
+                        status: APPLICATION_STATUS.SHORTLISTED,
+                        statusHistory: [
+                            ...statusHistory,
+                            {
+                                status: APPLICATION_STATUS.SHORTLISTED,
+                                timestamp: Timestamp.now(),
+                                note: 'Shortlisted by recruiter',
+                            },
+                        ],
+                        updatedAt: Timestamp.now(),
+                    });
+                }
+            }
+
+            await batch.commit();
+            setSelectedIds(new Set());
+            setShortlistMode(false);
+        } catch (err) {
+            console.error('Error batch shortlisting:', err);
+            setError('Failed to shortlist applicants. Please try again.');
+        } finally {
+            setShortlisting(false);
+        }
     };
 
     // Format date
@@ -330,7 +412,37 @@ const ManageJobs = () => {
                             </p>
                         </div>
                     </div>
-                    <StatusBadge status={selectedJob.status} />
+                    <div className="flex items-center gap-3">
+                        {/* Shortlisting Mode Toggle */}
+                        {applicants.length > 0 && (
+                            <button
+                                onClick={toggleShortlistMode}
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    shortlistMode
+                                        ? 'bg-yellow-100 text-yellow-800 border-2 border-yellow-400 shadow-sm'
+                                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                }`}
+                            >
+                                {shortlistMode ? (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        Exit Shortlisting Mode
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                        Enable Shortlisting Mode
+                                    </>
+                                )}
+                            </button>
+                        )}
+                        <StatusBadge status={selectedJob.status} />
+                    </div>
                 </div>
             )}
 
@@ -620,75 +732,196 @@ const ManageJobs = () => {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {applicants.map((app) => (
-                            <div
-                                key={app.id}
-                                onClick={() => setSelectedApplicant(app)}
-                                className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer"
-                            >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-1.5">
-                                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                                                {app.studentName?.charAt(0)?.toUpperCase() || '?'}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-base font-semibold text-gray-900">{app.studentName || 'Unknown'}</h3>
-                                                <p className="text-sm text-gray-500">{app.studentEmail}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mt-2 ml-[52px]">
-                                            {app.studentBranch && (
-                                                <span className="flex items-center gap-1">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                                    {app.studentBranch}
-                                                </span>
-                                            )}
-                                            {app.studentRollNumber && (
-                                                <span className="flex items-center gap-1">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
-                                                    {app.studentRollNumber}
-                                                </span>
-                                            )}
-                                            {app.studentCGPA && (
-                                                <span className="flex items-center gap-1">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                                    CGPA: {app.studentCGPA}
-                                                </span>
-                                            )}
-                                            <span className="flex items-center gap-1">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                Applied: {formatDate(app.appliedAt)}
-                                            </span>
-                                        </div>
-                                        {app.studentSkills?.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5 mt-2 ml-[52px]">
-                                                {app.studentSkills.slice(0, 5).map((skill, idx) => (
-                                                    <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
-                                                        {skill}
-                                                    </span>
-                                                ))}
-                                                {app.studentSkills.length > 5 && (
-                                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                                                        +{app.studentSkills.length - 5} more
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                            STATUS_COLORS[app.status] || 'bg-gray-100 text-gray-700'
-                                        }`}>
-                                            {STATUS_LABELS[app.status] || app.status || 'Applied'}
-                                        </span>
-                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        {/* Shortlisting mode banner & select all */}
+                        {shortlistMode && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-yellow-200 rounded-lg flex items-center justify-center">
+                                        <svg className="w-4 h-4 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                         </svg>
                                     </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-yellow-800">Shortlisting Mode Active</p>
+                                        <p className="text-xs text-yellow-700">
+                                            Select applicants to shortlist. Click on any applicant to view details.
+                                        </p>
+                                    </div>
+                                </div>
+                                {eligibleForShortlist.length > 0 && (
+                                    <button
+                                        onClick={toggleSelectAll}
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-yellow-300 rounded-lg text-sm font-medium text-yellow-800 hover:bg-yellow-100 transition-colors whitespace-nowrap"
+                                    >
+                                        <span className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                                            allEligibleSelected ? 'bg-yellow-500 border-yellow-500' : 'border-yellow-400 bg-white'
+                                        }`}>
+                                            {allEligibleSelected && (
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </span>
+                                        {allEligibleSelected ? 'Deselect All' : `Select All (${eligibleForShortlist.length})`}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {applicants.map((app) => {
+                            const isSelected = selectedIds.has(app.id);
+
+                            return (
+                                <div
+                                    key={app.id}
+                                    className={`bg-white rounded-xl shadow-sm border p-5 hover:shadow-md transition-all cursor-pointer ${
+                                        shortlistMode && isSelected
+                                            ? 'border-yellow-400 bg-yellow-50/50 ring-1 ring-yellow-300'
+                                            : 'border-gray-200 hover:border-blue-200'
+                                    }`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {/* Checkbox column in shortlisting mode */}
+                                        {shortlistMode && (
+                                            <div className="flex-shrink-0 pt-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSelectApplicant(app.id);
+                                                    }}
+                                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                                                        isSelected
+                                                            ? 'bg-yellow-500 border-yellow-500 shadow-sm'
+                                                            : 'border-gray-300 bg-white hover:border-yellow-400'
+                                                    }`}
+                                                >
+                                                    {isSelected && (
+                                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Applicant content - clicking opens detail modal */}
+                                        <div
+                                            className="flex-1 min-w-0"
+                                            onClick={() => setSelectedApplicant(app)}
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-1.5">
+                                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                                                            {app.studentName?.charAt(0)?.toUpperCase() || '?'}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="text-base font-semibold text-gray-900">{app.studentName || 'Unknown'}</h3>
+                                                            <p className="text-sm text-gray-500">{app.studentEmail}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mt-2 ml-[52px]">
+                                                        {app.studentBranch && (
+                                                            <span className="flex items-center gap-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                                                {app.studentBranch}
+                                                            </span>
+                                                        )}
+                                                        {app.studentRollNumber && (
+                                                            <span className="flex items-center gap-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
+                                                                {app.studentRollNumber}
+                                                            </span>
+                                                        )}
+                                                        {app.studentCGPA && (
+                                                            <span className="flex items-center gap-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                                                CGPA: {app.studentCGPA}
+                                                            </span>
+                                                        )}
+                                                        <span className="flex items-center gap-1">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                            Applied: {formatDate(app.appliedAt)}
+                                                        </span>
+                                                    </div>
+                                                    {app.studentSkills?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-2 ml-[52px]">
+                                                            {app.studentSkills.slice(0, 5).map((skill, idx) => (
+                                                                <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+                                                                    {skill}
+                                                                </span>
+                                                            ))}
+                                                            {app.studentSkills.length > 5 && (
+                                                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                                                                    +{app.studentSkills.length - 5} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3 flex-shrink-0">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                                        STATUS_COLORS[app.status] || 'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                        {STATUS_LABELS[app.status] || app.status || 'Applied'}
+                                                    </span>
+                                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Floating Shortlist Action Bar */}
+                        {shortlistMode && (
+                            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+                                <div className="bg-gray-900 text-white rounded-2xl shadow-2xl px-6 py-3.5 flex items-center gap-4 min-w-[340px]">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-sm font-bold text-gray-900">
+                                            {selectedIds.size}
+                                        </div>
+                                        <span className="text-sm font-medium">
+                                            applicant{selectedIds.size !== 1 ? 's' : ''} selected
+                                        </span>
+                                    </div>
+                                    <div className="w-px h-8 bg-gray-700"></div>
+                                    {selectedIds.size > 0 && (
+                                        <button
+                                            onClick={() => setSelectedIds(new Set())}
+                                            className="text-sm text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleBatchShortlist}
+                                        disabled={shortlisting}
+                                        className="ml-auto inline-flex items-center gap-2 px-5 py-2 bg-yellow-500 text-gray-900 rounded-xl text-sm font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50"
+                                    >
+                                        {shortlisting ? (
+                                            <>
+                                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                </svg>
+                                                Shortlisting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Shortlist Selected
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
                 )
             )}
