@@ -3,6 +3,7 @@ import { useAuth } from '@context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@config/firebase';
 import { uploadResumeToCloudinary } from '@services/cloudinaryService';
+import { BRANCHES } from '@config/constants';
 import toast from 'react-hot-toast';
 
 const StudentProfile = () => {
@@ -219,7 +220,7 @@ const StudentProfile = () => {
 
     // Handle form submission
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         
         if (!formData.fullName || !formData.rollNumber || !formData.branch) {
             toast.error('Please fill in all required fields');
@@ -274,697 +275,635 @@ const StudentProfile = () => {
 
     if (profileLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-4 text-gray-600">Loading profile...</p>
                 </div>
             </div>
         );
     }
 
-    return (
-        <div className="min-h-screen bg-gray-100 pb-12">
-            {isEditMode ? (
-                    // EDIT MODE
-                    <div className="max-w-5xl mx-auto py-8 px-4">
-                        <div className="mb-6">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Profile</h1>
-                            <p className="text-gray-600">Update your profile information</p>
-                        </div>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Profile Photo Section */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    📷
-                                </div>
-                                Profile Photo
-                            </h2>
-                            <div className="flex flex-col md:flex-row items-center gap-8">
-                                <div className="flex-shrink-0 relative">
-                                    {photoPreview ? (
-                                        <div className="relative">
-                                            <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-300 shadow-lg bg-gray-100">
-                                                <img
-                                                    src={photoPreview}
-                                                    alt="Profile"
-                                                    className="w-full h-full object-cover"
-                                                    style={{
-                                                        transform: `scale(${photoZoom}) translate(${photoPosition.x / 40}px, ${photoPosition.y / 40}px)`,
-                                                    }}
-                                                />
-                                            </div>
-                                            {profilePhoto && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPhotoAdjust(true)}
-                                                    className="absolute bottom-1 right-1 bg-primary-600 text-white rounded-full p-2 hover:bg-primary-700 transition shadow-lg"
-                                                    title="Adjust photo"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                </button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="w-40 h-40 rounded-full bg-gray-100 flex items-center justify-center border-4 border-dashed border-gray-300">
-                                            <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                                            </svg>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <label className="block mb-3">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handlePhotoSelect}
-                                            className="hidden"
-                                            disabled={loading}
-                                        />
-                                        <span className="cursor-pointer inline-block px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition duration-300 font-medium">
-                                            Upload Photo
-                                        </span>
-                                    </label>
-                                    <p className="text-sm text-gray-600">JPG, PNG or GIF. Max 5MB</p>
-                                    <p className="text-xs text-gray-500 mt-2">For best results, use a square image</p>
-                                </div>
-                            </div>
-                        </div>
+    const initial = (formData.fullName || 'S').charAt(0).toUpperCase();
+    const profileCompletion =
+        (formData.aboutMe ? 20 : 0) +
+        (formData.profilePhoto ? 20 : 0) +
+        (formData.skills.length > 0 ? 20 : 0) +
+        (formData.projects.length > 0 ? 20 : 0) +
+        (formData.achievements.length > 0 ? 20 : 0);
 
-                        {/* Basic Information */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    ℹ️
-                                </div>
-                                Basic Information
-                            </h2>
-                            
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Full Name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="fullName"
-                                    value={formData.fullName}
-                                    onChange={handleInputChange}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                            </div>
+    // ─── VIEW MODE ─────────────────────────────────────────────
+    if (!isEditMode) {
+        return (
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Hero Banner */}
+                <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl overflow-hidden shadow-lg">
+                    {/* Pattern overlay */}
+                    <div className="absolute inset-0 opacity-10">
+                        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <pattern id="studentGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+                                </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#studentGrid)" />
+                        </svg>
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Roll Number <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="rollNumber"
-                                        value={formData.rollNumber}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Branch <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="branch"
-                                        value={formData.branch}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                        disabled={loading}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-6">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    CGPA
-                                </label>
-                                <input
-                                    type="number"
-                                    name="cgpa"
-                                    min="0"
-                                    max="10"
-                                    step="0.01"
-                                    value={formData.cgpa}
-                                    onChange={handleInputChange}
-                                    placeholder="e.g., 8.5"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                                <p className="text-xs text-gray-500 mt-2">Enter value between 0 and 10</p>
-                            </div>
-                        </div>
-
-                        {/* Skills Section */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    ⭐
-                                </div>
-                                Skills
-                            </h2>
-                            <div className="flex gap-2 mb-6">
-                                <input
-                                    type="text"
-                                    value={skillInput}
-                                    onChange={(e) => setSkillInput(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            addSkill();
-                                        }
+                    <div className="relative px-8 py-10 flex flex-col sm:flex-row items-center gap-6">
+                        {/* Profile Photo */}
+                        <div className="flex-shrink-0">
+                            {formData.profilePhoto ? (
+                                <img
+                                    src={formData.profilePhoto}
+                                    alt={formData.fullName}
+                                    className="w-24 h-24 rounded-full object-cover border-4 border-white/30 shadow-xl bg-white"
+                                    style={{
+                                        transform: `scale(${photoZoom}) translate(${photoPosition.x / 40}px, ${photoPosition.y / 40}px)`,
                                     }}
-                                    placeholder="Add a skill (e.g., JavaScript, React, etc.)"
-                                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={addSkill}
-                                    className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition duration-300 font-medium disabled:opacity-50"
-                                    disabled={loading}
-                                >
-                                    Add
-                                </button>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3">
-                                {formData.skills.map((skill) => (
-                                    <div
-                                        key={skill}
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-900 rounded-full text-sm font-medium hover:bg-gray-300 transition"
-                                    >
-                                        {skill}
-                                        <button
-                                            type="button"
-                                            onClick={() => removeSkill(skill)}
-                                            className="ml-1 text-gray-900 hover:text-black transition"
-                                            disabled={loading}
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            {formData.skills.length === 0 && (
-                                <p className="text-gray-500 text-sm">No skills added yet. Add your first skill above!</p>
+                            ) : (
+                                <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 flex items-center justify-center shadow-xl">
+                                    <span className="text-4xl font-bold text-white">{initial}</span>
+                                </div>
                             )}
                         </div>
 
-                        {/* About Me Section */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    ✍️
-                                </div>
-                                About Me
-                            </h2>
-                            <textarea
-                                name="aboutMe"
-                                value={formData.aboutMe}
-                                onChange={handleInputChange}
-                                placeholder="Write a brief introduction about yourself, your goals, interests..."
-                                rows="6"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition resize-none"
-                                disabled={loading}
-                            />
+                        {/* Name & Info */}
+                        <div className="flex-1 text-center sm:text-left">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                                {formData.fullName || 'Student Name'}
+                            </h1>
+                            {formData.branch && (
+                                <p className="mt-1 text-blue-100 text-sm">{formData.branch}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm text-blue-100">
+                                {formData.rollNumber && (
+                                    <span className="flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        {formData.rollNumber}
+                                    </span>
+                                )}
+                                {(userProfile?.email || user?.email) && (
+                                    <span className="flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        {userProfile?.email || user?.email}
+                                    </span>
+                                )}
+                                {formData.cgpa && (
+                                    <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-green-400/20 text-green-100 border border-green-300/30 rounded-full backdrop-blur-sm">
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        {formData.cgpa}/10 CGPA
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Projects Section */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    💼
-                                </div>
+                        {/* Edit Button */}
+                        <button
+                            onClick={() => setIsEditMode(true)}
+                            className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl border border-white/20 transition-all text-sm font-medium"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Profile
+                        </button>
+                    </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                        </div>
+                        <p className="text-xs text-gray-500">Skills</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">{formData.skills.length}</p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                        </div>
+                        <p className="text-xs text-gray-500">Projects</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">{formData.projects.length}</p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                            </svg>
+                        </div>
+                        <p className="text-xs text-gray-500">Achievements</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">{formData.achievements.length}</p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
+                        <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                        </div>
+                        <p className="text-xs text-gray-500">CGPA</p>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">{formData.cgpa || '—'}</p>
+                    </div>
+                </div>
+
+                {/* About Section */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            About Me
+                        </h2>
+                    </div>
+                    <div className="px-6 py-5">
+                        {formData.aboutMe ? (
+                            <p className="text-gray-700 leading-relaxed whitespace-pre-line">{formData.aboutMe}</p>
+                        ) : (
+                            <p className="text-gray-400 italic">No about information added yet. Click "Edit Profile" to add one.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Skills Section */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            Skills
+                        </h2>
+                    </div>
+                    <div className="px-6 py-5">
+                        {formData.skills.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {formData.skills.map((skill, index) => (
+                                    <span
+                                        key={skill}
+                                        className={`inline-block px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-200 cursor-default ${
+                                            index % 5 === 0 ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                                            index % 5 === 1 ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' :
+                                            index % 5 === 2 ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                                            index % 5 === 3 ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' :
+                                            'bg-pink-100 text-pink-700 hover:bg-pink-200'
+                                        }`}
+                                    >
+                                        {skill}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-gray-400 italic">No skills added yet.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Projects & Achievements side by side on large screens */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Projects */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                </svg>
                                 Projects
                             </h2>
-                            <div className="space-y-4 mb-6">
-                                <input
-                                    type="text"
-                                    value={projectInput.title}
-                                    onChange={(e) => setProjectInput(prev => ({ ...prev, title: e.target.value }))}
-                                    placeholder="Project Title *"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                                <textarea
-                                    value={projectInput.description}
-                                    onChange={(e) => setProjectInput(prev => ({ ...prev, description: e.target.value }))}
-                                    placeholder="Project Description"
-                                    rows="3"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition resize-none"
-                                    disabled={loading}
-                                />
-                                <input
-                                    type="url"
-                                    value={projectInput.link}
-                                    onChange={(e) => setProjectInput(prev => ({ ...prev, link: e.target.value }))}
-                                    placeholder="Project Link (optional)"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={addProject}
-                                    className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium disabled:opacity-50"
-                                    disabled={loading}
-                                >
-                                    Add Project
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {formData.projects.map((project) => (
-                                    <div key={project.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-bold text-gray-900">{project.title}</h3>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeProject(project.id)}
-                                                className="text-red-600 hover:text-red-800"
-                                                disabled={loading}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                        {project.description && <p className="text-gray-700 text-sm mb-2">{project.description}</p>}
+                        </div>
+                        <div className="px-6 py-5 space-y-4">
+                            {formData.projects.length > 0 ? (
+                                formData.projects.map((project) => (
+                                    <div key={project.id} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                                        <h3 className="font-semibold text-gray-900 text-sm">{project.title}</h3>
+                                        {project.description && (
+                                            <p className="text-gray-600 text-sm mt-1 leading-relaxed">{project.description}</p>
+                                        )}
                                         {project.link && (
-                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
-                                                View Project →
+                                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center gap-1 mt-1">
+                                                View Project
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
                                             </a>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-                            {formData.projects.length === 0 && (
-                                <p className="text-gray-500 text-sm">No projects added yet</p>
+                                ))
+                            ) : (
+                                <p className="text-gray-400 italic">No projects added yet.</p>
                             )}
                         </div>
+                    </div>
 
-                        {/* Achievements Section */}
-                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-lg">
-                                    🏆
-                                </div>
+                    {/* Achievements */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                </svg>
                                 Achievements
                             </h2>
-                            <div className="space-y-4 mb-6">
-                                <input
-                                    type="text"
-                                    value={achievementInput.title}
-                                    onChange={(e) => setAchievementInput(prev => ({ ...prev, title: e.target.value }))}
-                                    placeholder="Achievement Title *"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                                <textarea
-                                    value={achievementInput.description}
-                                    onChange={(e) => setAchievementInput(prev => ({ ...prev, description: e.target.value }))}
-                                    placeholder="Achievement Description"
-                                    rows="3"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition resize-none"
-                                    disabled={loading}
-                                />
-                                <input
-                                    type="text"
-                                    value={achievementInput.date}
-                                    onChange={(e) => setAchievementInput(prev => ({ ...prev, date: e.target.value }))}
-                                    placeholder="Date (e.g., Jan 2024)"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-gray-500 focus:ring-2 focus:ring-gray-200 outline-none transition"
-                                    disabled={loading}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={addAchievement}
-                                    className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium disabled:opacity-50"
-                                    disabled={loading}
-                                >
-                                    Add Achievement
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {formData.achievements.map((achievement) => (
-                                    <div key={achievement.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <h3 className="font-bold text-gray-900">{achievement.title}</h3>
-                                                {achievement.date && <p className="text-sm text-gray-500">{achievement.date}</p>}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeAchievement(achievement.id)}
-                                                className="text-red-600 hover:text-red-800"
-                                                disabled={loading}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                        {achievement.description && <p className="text-gray-700 text-sm">{achievement.description}</p>}
-                                    </div>
-                                ))}
-                            </div>
-                            {formData.achievements.length === 0 && (
-                                <p className="text-gray-500 text-sm">No achievements added yet</p>
-                            )}
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-4 justify-end max-w-5xl mx-auto px-4">
-                            <button
-                                type="button"
-                                onClick={() => setIsEditMode(false)}
-                                className="px-8 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-semibold disabled:opacity-50"
-                                disabled={loading}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 font-semibold disabled:opacity-50"
-                                disabled={loading}
-                            >
-                                {loading ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
-
-                        {/* Photo Adjustment Modal */}
-                        {showPhotoAdjust && photoPreview && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                                <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
-                                    <div className="p-6 border-b border-gray-200">
-                                        <h2 className="text-2xl font-bold text-gray-900">Adjust Photo</h2>
-                                        <p className="text-gray-600 text-sm mt-1">Position and zoom your photo to get the perfect profile picture</p>
-                                    </div>
-
-                                    <div className="p-6 space-y-4">
-                                        {/* Preview Container */}
-                                        <div className="flex justify-center mb-6">
-                                            <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 bg-gray-100 shadow-lg">
-                                                <img
-                                                    src={photoPreview}
-                                                    alt="Preview"
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover',
-                                                        transform: `scale(${photoZoom}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
-                                                        cursor: isDragging ? 'grabbing' : 'grab',
-                                                    }}
-                                                    onMouseDown={handlePhotoDragStart}
-                                                    onMouseMove={handlePhotoDragMove}
-                                                    onMouseUp={handlePhotoDragEnd}
-                                                    onMouseLeave={handlePhotoDragEnd}
-                                                    draggable={false}
-                                                />
-                                            </div>
+                        <div className="px-6 py-5 space-y-4">
+                            {formData.achievements.length > 0 ? (
+                                formData.achievements.map((achievement) => (
+                                    <div key={achievement.id} className="flex gap-3">
+                                        <div className="flex-shrink-0 w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center text-sm">
+                                            🏆
                                         </div>
-
-                                        {/* Adjustment Controls */}
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                                                    Zoom: {Math.round(photoZoom * 100)}%
-                                                </label>
-                                                <input
-                                                    type="range"
-                                                    min="1"
-                                                    max="3"
-                                                    step="0.1"
-                                                    value={photoZoom}
-                                                    onChange={handlePhotoZoom}
-                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
-                                                />
-                                            </div>
-
-                                            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                                                <p className="font-medium">💡 Tips:</p>
-                                                <ul className="list-disc list-inside mt-1 space-y-1">
-                                                    <li>Drag the image to position your face in the center</li>
-                                                    <li>Use the zoom slider to adjust the size</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-gray-200 p-6 flex gap-4 justify-end">
-                                        <button
-                                            onClick={cancelPhotoAdjustment}
-                                            className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={applyPhotoAdjustment}
-                                            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-semibold"
-                                        >
-                                            Apply & Continue
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </form>
-                    </div>
-                ) : (
-                    // VIEW MODE - LinkedIn-inspired design
-                    <>
-                        {/* Profile Header Card */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-6 max-w-5xl mx-auto">
-                            <div className="p-8">
-                                <div className="flex flex-col md:flex-row items-start gap-8">
-                                    {/* Profile Picture */}
-                                    <div className="flex-shrink-0">
-                                        {formData.profilePhoto ? (
-                                            <img
-                                                src={formData.profilePhoto}
-                                                alt={formData.fullName}
-                                                className="w-32 h-32 rounded-full object-cover shadow-xl ring-4 ring-primary-100"
-                                            />
-                                        ) : (
-                                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-xl ring-4 ring-primary-100 text-white text-5xl font-bold">
-                                                {formData.fullName?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Name and Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <h1 className="text-3xl font-bold text-gray-900 mb-2">{formData.fullName}</h1>
-                                        <p className="text-lg font-medium text-gray-700 mb-3">{formData.branch}</p>
-                                        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                                            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full">
-                                                <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                                <span className="font-medium">{formData.rollNumber}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full">
-                                                <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
-                                                <span className="truncate">{userProfile?.email || user?.email}</span>
-                                            </div>
-                                            {formData.cgpa && (
-                                                <div className="flex items-center gap-1.5 bg-primary-50 px-3 py-1.5 rounded-full">
-                                                    <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                                    </svg>
-                                                    <span className="font-semibold text-primary-700">{formData.cgpa}/10 CGPA</span>
-                                                </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-semibold text-gray-900 text-sm">{achievement.title}</h3>
+                                            {achievement.date && (
+                                                <p className="text-xs text-gray-500">{achievement.date}</p>
+                                            )}
+                                            {achievement.description && (
+                                                <p className="text-gray-600 text-sm mt-1 leading-relaxed">{achievement.description}</p>
                                             )}
                                         </div>
-                                        
-                                        {/* Stats */}
-                                        <div className="flex gap-8 mt-5 pt-5 border-t border-gray-100">
-                                            <div className="text-center">
-                                                <p className="text-2xl font-bold text-primary-600">{formData.skills.length}</p>
-                                                <p className="text-xs text-gray-500 uppercase tracking-wide mt-1">Skills</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-2xl font-bold text-primary-600">{formData.projects.length}</p>
-                                                <p className="text-xs text-gray-500 uppercase tracking-wide mt-1">Projects</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-2xl font-bold text-primary-600">{formData.achievements.length}</p>
-                                                <p className="text-xs text-gray-500 uppercase tracking-wide mt-1">Achievements</p>
-                                            </div>
-                                        </div>
                                     </div>
-
-                                    {/* Edit Button */}
-                                    <div className="flex-shrink-0">
-                                        <button
-                                            onClick={() => setIsEditMode(true)}
-                                            className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-semibold shadow-sm flex items-center gap-2"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Edit Profile
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                                ))
+                            ) : (
+                                <p className="text-gray-400 italic">No achievements added yet.</p>
+                            )}
                         </div>
+                    </div>
+                </div>
 
-                        {/* Main Content */}
-                        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Left Column - Main Content */}
-                            <div className="lg:col-span-2 space-y-6">
-                                {/* About Section */}
-                                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">About</h2>
-                                    {formData.aboutMe ? (
-                                        <p className="text-gray-700 whitespace-pre-line leading-relaxed">{formData.aboutMe}</p>
-                                    ) : (
-                                        <p className="text-gray-500 italic">No about information added yet.</p>
-                                    )}
-                                </div>
-
-                                {/* Projects Section */}
-                                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Projects</h2>
-                                    {formData.projects.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {formData.projects.map((project) => (
-                                                <div key={project.id} className="border-b border-gray-200 last:border-0 pb-4 last:pb-0">
-                                                    <h3 className="font-bold text-lg text-gray-900 mb-1">{project.title}</h3>
-                                                    {project.description && (
-                                                        <p className="text-gray-700 text-sm mb-2 leading-relaxed">{project.description}</p>
-                                                    )}
-                                                    {project.link && (
-                                                        <a
-                                                            href={project.link}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:underline text-sm font-medium inline-flex items-center gap-1"
-                                                        >
-                                                            View Project
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                            </svg>
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 italic">No projects added yet.</p>
-                                    )}
-                                </div>
-
-                                {/* Achievements Section */}
-                                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Achievements</h2>
-                                    {formData.achievements.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {formData.achievements.map((achievement) => (
-                                                <div key={achievement.id} className="flex gap-4">
-                                                    <div className="flex-shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-xl">
-                                                        🏆
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <h3 className="font-bold text-gray-900">{achievement.title}</h3>
-                                                        {achievement.date && (
-                                                            <p className="text-sm text-gray-500 mb-1">{achievement.date}</p>
-                                                        )}
-                                                        {achievement.description && (
-                                                            <p className="text-gray-700 text-sm leading-relaxed">{achievement.description}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 italic">No achievements added yet.</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Right Column - Sidebar */}
-                            <div className="space-y-6">
-                                {/* Skills Card */}
-                                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Skills</h2>
-                                    {formData.skills.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {formData.skills.map((skill, index) => (
-                                                <span
-                                                    key={skill}
-                                                    className={`inline-block px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-200 cursor-default ${
-                                                        index % 5 === 0 ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                                                        index % 5 === 1 ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' :
-                                                        index % 5 === 2 ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-                                                        index % 5 === 3 ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' :
-                                                        'bg-pink-100 text-pink-700 hover:bg-pink-200'
-                                                    }`}
-                                                >
-                                                    {skill}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 italic text-sm">No skills added yet.</p>
-                                    )}
-                                </div>
-
-                                {/* Profile Strength Card */}
-                                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Profile Strength</h2>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-gray-600">Completion</span>
-                                            <span className="font-semibold text-gray-900">
-                                                {Math.round(
-                                                    ((formData.aboutMe ? 20 : 0) +
-                                                    (formData.profilePhoto ? 20 : 0) +
-                                                    (formData.skills.length > 0 ? 20 : 0) +
-                                                    (formData.projects.length > 0 ? 20 : 0) +
-                                                    (formData.achievements.length > 0 ? 20 : 0))
-                                                )}%
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${
-                                                        (formData.aboutMe ? 20 : 0) +
-                                                        (formData.profilePhoto ? 20 : 0) +
-                                                        (formData.skills.length > 0 ? 20 : 0) +
-                                                        (formData.projects.length > 0 ? 20 : 0) +
-                                                        (formData.achievements.length > 0 ? 20 : 0)
-                                                    }%`
-                                                }}
-                                            ></div>
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-3 space-y-1">
-                                            {!formData.aboutMe && <p>• Add about section</p>}
-                                            {!formData.profilePhoto && <p>• Upload profile photo</p>}
-                                            {formData.skills.length === 0 && <p>• Add skills</p>}
-                                            {formData.projects.length === 0 && <p>• Add projects</p>}
-                                            {formData.achievements.length === 0 && <p>• Add achievements</p>}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                {/* Profile Completion Hint */}
+                {profileCompletion < 100 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-start gap-4">
+                        <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                         </div>
-                    </>
+                        <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-sm font-semibold text-amber-900">Complete your profile</h3>
+                                <span className="text-sm font-bold text-amber-700">{profileCompletion}%</span>
+                            </div>
+                            <div className="w-full bg-amber-200 rounded-full h-1.5 mb-2">
+                                <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${profileCompletion}%` }}></div>
+                            </div>
+                            <p className="text-sm text-amber-700">
+                                A complete profile increases visibility to recruiters. Add your{' '}
+                                {[
+                                    !formData.profilePhoto && 'profile photo',
+                                    !formData.aboutMe && 'about section',
+                                    formData.skills.length === 0 && 'skills',
+                                    formData.projects.length === 0 && 'projects',
+                                    formData.achievements.length === 0 && 'achievements',
+                                ]
+                                    .filter(Boolean)
+                                    .join(', ')}{' '}
+                                to stand out.
+                            </p>
+                        </div>
+                    </div>
                 )}
+            </div>
+        );
+    }
+
+    // ─── EDIT MODE ─────────────────────────────────────────────
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
+                    <p className="text-gray-600 mt-1 text-sm">Update your profile information to stand out to recruiters</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setIsEditMode(false)}
+                        disabled={loading}
+                        className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {loading && (
+                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                        )}
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+
+            {/* Profile Photo */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h2 className="text-base font-semibold text-gray-900 mb-4">Profile Photo</h2>
+                <div className="flex items-center gap-6">
+                    {photoPreview ? (
+                        <div className="relative">
+                            <div className="w-20 h-20 rounded-full overflow-hidden border border-gray-200 bg-gray-100">
+                                <img
+                                    src={photoPreview}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover"
+                                    style={{
+                                        transform: `scale(${photoZoom}) translate(${photoPosition.x / 40}px, ${photoPosition.y / 40}px)`,
+                                    }}
+                                />
+                            </div>
+                            {profilePhoto && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPhotoAdjust(true)}
+                                    className="absolute -bottom-1 -right-1 bg-blue-600 text-white rounded-full p-1.5 hover:bg-blue-700 transition shadow-lg"
+                                    title="Adjust photo"
+                                >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                    )}
+                    <div>
+                        <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            Upload Photo
+                            <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" disabled={loading} />
+                        </label>
+                        {formData.profilePhoto && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFormData(prev => ({ ...prev, profilePhoto: '' }));
+                                    setPhotoPreview(null);
+                                    setProfilePhoto(null);
+                                }}
+                                className="ml-3 text-sm text-red-600 hover:text-red-700"
+                            >
+                                Remove
+                            </button>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">JPG, PNG or GIF. Max 5MB.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Basic Information */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-base font-semibold text-gray-900">Basic Information</h2>
+                </div>
+                <div className="p-6 space-y-5">
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Full Name <span className="text-red-500">*</span></label>
+                        <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                            <label className="block text-sm font-medium text-gray-700">Roll Number <span className="text-red-500">*</span></label>
+                            <input type="text" name="rollNumber" value={formData.rollNumber} onChange={handleInputChange} disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="block text-sm font-medium text-gray-700">Branch <span className="text-red-500">*</span></label>
+                            <select name="branch" value={formData.branch} onChange={handleInputChange} disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white">
+                                <option value="">Select your branch</option>
+                                {BRANCHES.map((b) => (
+                                    <option key={b} value={b}>{b}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">CGPA</label>
+                        <input type="number" name="cgpa" min="0" max="10" step="0.01" value={formData.cgpa} onChange={handleInputChange} placeholder="e.g., 8.5" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        <p className="text-xs text-gray-500">Enter value between 0 and 10</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Skills */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-base font-semibold text-gray-900">Skills</h2>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={skillInput}
+                            onChange={(e) => setSkillInput(e.target.value)}
+                            onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }}
+                            placeholder="Add a skill (e.g., JavaScript, React...)"
+                            disabled={loading}
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                        />
+                        <button type="button" onClick={addSkill} disabled={loading} className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                            Add
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {formData.skills.map((skill) => (
+                            <span key={skill} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-200">
+                                {skill}
+                                <button type="button" onClick={() => removeSkill(skill)} disabled={loading} className="text-blue-500 hover:text-blue-700 transition">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                    {formData.skills.length === 0 && (
+                        <p className="text-gray-400 text-sm">No skills added yet. Add your first skill above!</p>
+                    )}
+                </div>
+            </div>
+
+            {/* About Me */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-base font-semibold text-gray-900">About Me</h2>
+                </div>
+                <div className="p-6">
+                    <textarea
+                        name="aboutMe"
+                        value={formData.aboutMe}
+                        onChange={handleInputChange}
+                        placeholder="Write a brief introduction about yourself, your goals, interests..."
+                        rows="5"
+                        disabled={loading}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white resize-none"
+                    />
+                </div>
+            </div>
+
+            {/* Projects */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-base font-semibold text-gray-900">Projects</h2>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="space-y-3">
+                        <input type="text" value={projectInput.title} onChange={(e) => setProjectInput(prev => ({ ...prev, title: e.target.value }))} placeholder="Project Title *" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        <textarea value={projectInput.description} onChange={(e) => setProjectInput(prev => ({ ...prev, description: e.target.value }))} placeholder="Project Description" rows="3" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white resize-none" />
+                        <input type="url" value={projectInput.link} onChange={(e) => setProjectInput(prev => ({ ...prev, link: e.target.value }))} placeholder="Project Link (optional)" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        <button type="button" onClick={addProject} disabled={loading} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                            Add Project
+                        </button>
+                    </div>
+                    <div className="space-y-3">
+                        {formData.projects.map((project) => (
+                            <div key={project.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="font-semibold text-gray-900 text-sm">{project.title}</h3>
+                                    <button type="button" onClick={() => removeProject(project.id)} disabled={loading} className="text-red-500 hover:text-red-700 p-1">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                                {project.description && <p className="text-gray-600 text-sm mt-1">{project.description}</p>}
+                                {project.link && <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm mt-1 inline-block">View Project &rarr;</a>}
+                            </div>
+                        ))}
+                    </div>
+                    {formData.projects.length === 0 && <p className="text-gray-400 text-sm">No projects added yet</p>}
+                </div>
+            </div>
+
+            {/* Achievements */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h2 className="text-base font-semibold text-gray-900">Achievements</h2>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="space-y-3">
+                        <input type="text" value={achievementInput.title} onChange={(e) => setAchievementInput(prev => ({ ...prev, title: e.target.value }))} placeholder="Achievement Title *" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        <textarea value={achievementInput.description} onChange={(e) => setAchievementInput(prev => ({ ...prev, description: e.target.value }))} placeholder="Achievement Description" rows="3" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white resize-none" />
+                        <input type="text" value={achievementInput.date} onChange={(e) => setAchievementInput(prev => ({ ...prev, date: e.target.value }))} placeholder="Date (e.g., Jan 2024)" disabled={loading} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white" />
+                        <button type="button" onClick={addAchievement} disabled={loading} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                            Add Achievement
+                        </button>
+                    </div>
+                    <div className="space-y-3">
+                        {formData.achievements.map((achievement) => (
+                            <div key={achievement.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900 text-sm">{achievement.title}</h3>
+                                        {achievement.date && <p className="text-xs text-gray-500">{achievement.date}</p>}
+                                    </div>
+                                    <button type="button" onClick={() => removeAchievement(achievement.id)} disabled={loading} className="text-red-500 hover:text-red-700 p-1">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                                {achievement.description && <p className="text-gray-600 text-sm mt-1">{achievement.description}</p>}
+                            </div>
+                        ))}
+                    </div>
+                    {formData.achievements.length === 0 && <p className="text-gray-400 text-sm">No achievements added yet</p>}
+                </div>
+            </div>
+
+            {/* Bottom Save Bar */}
+            <div className="flex items-center justify-end gap-3 pb-6">
+                <button
+                    type="button"
+                    onClick={() => setIsEditMode(false)}
+                    disabled={loading}
+                    className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                    {loading && (
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                    )}
+                    Save Changes
+                </button>
+            </div>
+
+            {/* Photo Adjustment Modal */}
+            {showPhotoAdjust && photoPreview && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                        <div className="p-6 border-b border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900">Adjust Photo</h2>
+                            <p className="text-gray-500 text-sm mt-1">Position and zoom your profile picture</p>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div className="flex justify-center">
+                                <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 bg-gray-100 shadow-lg">
+                                    <img
+                                        src={photoPreview}
+                                        alt="Preview"
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            transform: `scale(${photoZoom}) translate(${photoPosition.x}px, ${photoPosition.y}px)`,
+                                            cursor: isDragging ? 'grabbing' : 'grab',
+                                        }}
+                                        onMouseDown={handlePhotoDragStart}
+                                        onMouseMove={handlePhotoDragMove}
+                                        onMouseUp={handlePhotoDragEnd}
+                                        onMouseLeave={handlePhotoDragEnd}
+                                        draggable={false}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Zoom: {Math.round(photoZoom * 100)}%
+                                </label>
+                                <input type="range" min="1" max="3" step="0.1" value={photoZoom} onChange={handlePhotoZoom} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                            </div>
+                            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <p className="font-medium text-blue-800">Tip: Drag the image to position, use slider to zoom.</p>
+                            </div>
+                        </div>
+                        <div className="border-t border-gray-200 p-4 flex gap-3 justify-end">
+                            <button onClick={cancelPhotoAdjustment} className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button onClick={applyPhotoAdjustment} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

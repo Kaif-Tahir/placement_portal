@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@context/AuthContext';
-import { USER_ROLES } from '@config/constants';
+import { USER_ROLES, BRANCHES } from '@config/constants';
 import toast from 'react-hot-toast';
 
 const RegisterPage = () => {
@@ -188,15 +188,18 @@ const RegisterPage = () => {
                                     <label htmlFor="branch" className="label">
                                         Branch/Department
                                     </label>
-                                    <input
+                                    <select
                                         id="branch"
                                         name="branch"
-                                        type="text"
                                         className="input"
-                                        placeholder="Computer Science"
                                         value={formData.branch}
                                         onChange={handleChange}
-                                    />
+                                    >
+                                        <option value="">Select your branch</option>
+                                        {BRANCHES.map((b) => (
+                                            <option key={b} value={b}>{b}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </>
                         )}

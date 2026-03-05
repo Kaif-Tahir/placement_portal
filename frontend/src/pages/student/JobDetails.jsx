@@ -4,6 +4,7 @@ import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp
 import { db } from '@config/firebase';
 import { COLLECTIONS, JOB_TYPE_LABELS, WORK_MODES, APPLICATION_STATUS } from '@config/constants';
 import { useAuth } from '@context/AuthContext';
+import toast from 'react-hot-toast';
 
 const JobDetails = () => {
     const { jobId } = useParams();
@@ -16,8 +17,21 @@ const JobDetails = () => {
     const [applying, setApplying] = useState(false);
     const [hasApplied, setHasApplied] = useState(false);
     const [applicationSuccess, setApplicationSuccess] = useState(false);
+    const [showApplicationForm, setShowApplicationForm] = useState(false);
+    const [studentData, setStudentData] = useState(null);
 
-    // Fetch job details
+    // Application form state
+    const [appForm, setAppForm] = useState({
+        cgpa: '',
+        phone: '',
+        skills: '',
+        linkedin: '',
+        portfolio: '',
+        coverLetter: '',
+        whyInterested: '',
+    });
+
+    // Fetch job details and student profile data
     useEffect(() => {
         const fetchJob = async () => {
             if (!jobId) return;
@@ -45,6 +59,21 @@ const JobDetails = () => {
                     );
                     const applicationsSnapshot = await getDocs(applicationsQuery);
                     setHasApplied(!applicationsSnapshot.empty);
+
+                    // Fetch student-specific profile data
+                    const studentDoc = await getDoc(doc(db, COLLECTIONS.STUDENTS, user.uid));
+                    if (studentDoc.exists()) {
+                        const sData = studentDoc.data();
+                        setStudentData(sData);
+                        setAppForm((prev) => ({
+                            ...prev,
+                            cgpa: sData.cgpa || '',
+                            phone: sData.phone || '',
+                            skills: (sData.skills || []).join(', '),
+                            linkedin: sData.linkedin || '',
+                            portfolio: sData.portfolio || '',
+                        }));
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching job:', err);
@@ -57,14 +86,24 @@ const JobDetails = () => {
         fetchJob();
     }, [jobId, user?.uid]);
 
-    // Handle apply
+    // Open application form
+    const openApplicationForm = () => {
+        setShowApplicationForm(true);
+    };
+
+    // Handle form field change
+    const handleFormChange = (e) => {
+        setAppForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    // Handle apply with form data
     const handleApply = async () => {
         if (!user?.uid || !job) return;
 
         try {
             setApplying(true);
 
-            // Create application document
+            // Create application document with full student details
             await addDoc(collection(db, COLLECTIONS.APPLICATIONS), {
                 jobId: job.id,
                 jobTitle: job.title,
@@ -72,6 +111,15 @@ const JobDetails = () => {
                 studentId: user.uid,
                 studentName: userProfile?.fullName || user.displayName || 'Unknown',
                 studentEmail: user.email,
+                studentRollNumber: studentData?.rollNumber || userProfile?.rollNumber || '',
+                studentBranch: studentData?.branch || userProfile?.branch || '',
+                studentCGPA: appForm.cgpa,
+                studentPhone: appForm.phone,
+                studentSkills: appForm.skills ? appForm.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
+                studentLinkedin: appForm.linkedin,
+                studentPortfolio: appForm.portfolio,
+                coverLetter: appForm.coverLetter,
+                whyInterested: appForm.whyInterested,
                 resumeUrl: userProfile?.resumeUrl || null,
                 status: APPLICATION_STATUS.APPLIED,
                 workflowStage: job.workflowStages?.[0] || 'Applied',
@@ -81,9 +129,11 @@ const JobDetails = () => {
 
             setHasApplied(true);
             setApplicationSuccess(true);
+            setShowApplicationForm(false);
+            toast.success('Application submitted successfully!');
         } catch (err) {
             console.error('Error applying to job:', err);
-            setError('Failed to submit application. Please try again.');
+            toast.error('Failed to submit application. Please try again.');
         } finally {
             setApplying(false);
         }
@@ -552,48 +602,226 @@ const JobDetails = () => {
                                 </div>
                             ) : (
                                 <button
-                                    onClick={handleApply}
-                                    disabled={applying}
-                                    className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                                    onClick={openApplicationForm}
+                                    className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
                                 >
-                                    {applying ? (
-                                        <>
-                                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                                <circle
-                                                    className="opacity-25"
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="10"
-                                                    stroke="currentColor"
-                                                    strokeWidth="4"
-                                                />
-                                                <path
-                                                    className="opacity-75"
-                                                    fill="currentColor"
-                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                />
-                                            </svg>
-                                            Applying...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                                />
-                                            </svg>
-                                            Apply Now
-                                        </>
-                                    )}
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                    Apply Now
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Application Form Modal */}
+            {showApplicationForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 rounded-t-2xl flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Apply for {job.title}</h2>
+                                    <p className="text-blue-100 text-sm mt-1">{job.companyName}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowApplicationForm(false)}
+                                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                                >
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body — scrollable */}
+                        <div className="overflow-y-auto flex-1 p-6 space-y-6">
+
+                            {/* Non-editable Identity Section */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Your Details (non-editable)</h3>
+                                <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Full Name</label>
+                                            <p className="text-sm font-medium text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">{userProfile?.fullName || user?.displayName || '—'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                                            <p className="text-sm font-medium text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">{user?.email || '—'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Roll Number</label>
+                                            <p className="text-sm font-medium text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">{studentData?.rollNumber || userProfile?.rollNumber || '—'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Branch</label>
+                                            <p className="text-sm font-medium text-gray-900 bg-gray-100 px-3 py-2 rounded-lg">{studentData?.branch || userProfile?.branch || '—'}</p>
+                                        </div>
+                                    </div>
+                                    {/* Resume status */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Resume</label>
+                                        {userProfile?.resumeUrl ? (
+                                            <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-3 py-2 rounded-lg">
+                                                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
+                                                <span className="text-sm text-green-800 font-medium">Resume uploaded</span>
+                                                <a href={userProfile.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline ml-auto">View</a>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg">
+                                                <svg className="w-4 h-4 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                                <span className="text-sm text-yellow-800 font-medium">No resume uploaded</span>
+                                                <Link to="/student/resume" className="text-xs text-blue-600 hover:underline ml-auto">Upload now</Link>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Editable Section */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Additional Details (editable)</h3>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">CGPA</label>
+                                            <input
+                                                type="text"
+                                                name="cgpa"
+                                                value={appForm.cgpa}
+                                                onChange={handleFormChange}
+                                                placeholder="e.g., 8.5"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                            <input
+                                                type="tel"
+                                                name="phone"
+                                                value={appForm.phone}
+                                                onChange={handleFormChange}
+                                                placeholder="e.g., +91 98765 43210"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Skills <span className="text-gray-400 font-normal">(comma separated)</span></label>
+                                        <input
+                                            type="text"
+                                            name="skills"
+                                            value={appForm.skills}
+                                            onChange={handleFormChange}
+                                            placeholder="e.g., React, Node.js, Python"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn Profile</label>
+                                            <input
+                                                type="url"
+                                                name="linkedin"
+                                                value={appForm.linkedin}
+                                                onChange={handleFormChange}
+                                                placeholder="https://linkedin.com/in/..."
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio / GitHub</label>
+                                            <input
+                                                type="url"
+                                                name="portfolio"
+                                                value={appForm.portfolio}
+                                                onChange={handleFormChange}
+                                                placeholder="https://github.com/..."
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Why are you interested in this role?</label>
+                                        <textarea
+                                            name="whyInterested"
+                                            value={appForm.whyInterested}
+                                            onChange={handleFormChange}
+                                            rows={3}
+                                            placeholder="Briefly describe why you're a good fit for this position..."
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                        />
+                                    </div>
+
+                                    {job.applicationSettings?.coverLetterRequired && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter <span className="text-red-500">*</span></label>
+                                            <textarea
+                                                name="coverLetter"
+                                                value={appForm.coverLetter}
+                                                onChange={handleFormChange}
+                                                rows={4}
+                                                placeholder="Write your cover letter here..."
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-2xl flex items-center justify-between flex-shrink-0">
+                            <p className="text-xs text-gray-500">By applying, your details will be shared with <span className="font-medium">{job.companyName}</span></p>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowApplicationForm(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleApply}
+                                    disabled={applying || (job.applicationSettings?.coverLetterRequired && !appForm.coverLetter.trim())}
+                                    className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                                >
+                                    {applying ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                            </svg>
+                                            Submitting...
+                                        </>
+                                    ) : (
+                                        'Submit Application'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

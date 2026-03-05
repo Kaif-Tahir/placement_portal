@@ -228,6 +228,25 @@ export const subscribeToJobs = (callback, filters = {}) => {
     });
 };
 
+// Subscribe to recruiter's jobs (real-time)
+export const subscribeToRecruiterJobs = (recruiterId, callback) => {
+    const q = query(
+        collection(db, COLLECTIONS.JOBS),
+        where('recruiterId', '==', recruiterId),
+        orderBy('createdAt', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const jobs = [];
+        snapshot.forEach(docSnap => {
+            jobs.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        callback(jobs);
+    }, (error) => {
+        console.error('Error subscribing to recruiter jobs:', error);
+    });
+};
+
 export default {
     getJobs,
     getJob,
@@ -237,4 +256,5 @@ export default {
     getJobsByRecruiter,
     getEligibleJobs,
     subscribeToJobs,
+    subscribeToRecruiterJobs,
 };

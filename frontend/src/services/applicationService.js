@@ -306,6 +306,53 @@ export const getApplicationStats = async (jobId) => {
     }
 };
 
+// Subscribe to all applications for a recruiter's jobs (real-time)
+export const subscribeToRecruiterApplications = (jobIds, callback) => {
+    if (!jobIds || jobIds.length === 0) {
+        callback([]);
+        return () => {};
+    }
+
+    // Firestore 'in' queries support max 30 items, chunk if needed
+    const chunks = [];
+    for (let i = 0; i < jobIds.length; i += 30) {
+        chunks.push(jobIds.slice(i, i + 30));
+    }
+
+    const unsubscribes = [];
+    const allApplications = new Map();
+
+    chunks.forEach((chunk, chunkIndex) => {
+        const q = query(
+            collection(db, COLLECTIONS.APPLICATIONS),
+            where('jobId', 'in', chunk)
+        );
+
+        const unsub = onSnapshot(q, (snapshot) => {
+            // Update applications for this chunk
+            snapshot.docs.forEach(docSnap => {
+                allApplications.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+            });
+
+            // Remove docs that no longer exist
+            const currentIds = new Set(snapshot.docs.map(d => d.id));
+            for (const [key, value] of allApplications) {
+                if (chunk.includes(value.jobId) && !currentIds.has(key)) {
+                    allApplications.delete(key);
+                }
+            }
+
+            callback(Array.from(allApplications.values()));
+        }, (error) => {
+            console.error('Error subscribing to recruiter applications:', error);
+        });
+
+        unsubscribes.push(unsub);
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+};
+
 export default {
     submitApplication,
     getApplication,
@@ -317,4 +364,5 @@ export default {
     subscribeToStudentApplications,
     subscribeToJobApplications,
     getApplicationStats,
+    subscribeToRecruiterApplications,
 };

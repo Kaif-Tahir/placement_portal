@@ -175,6 +175,20 @@ export const EXPERIENCE_LEVELS = {
     SENIOR: 'senior',
 };
 
+// Branches / Departments
+export const BRANCHES = [
+    'Computer Science',
+    'Information Technology',
+    'Electronics',
+    'Electrical',
+    'Mechanical',
+    'Civil',
+    'Chemical',
+    'Biotechnology',
+    'MBA',
+    'MCA',
+];
+
 export default {
     USER_ROLES,
     APPLICATION_STATUS,
@@ -195,4 +209,5 @@ export default {
     INTERVIEW_STATUS,
     COMPANY_SIZES,
     EXPERIENCE_LEVELS,
+    BRANCHES,
 };

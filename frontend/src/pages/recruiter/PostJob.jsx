@@ -4,35 +4,27 @@ import { useForm, useWatch } from 'react-hook-form';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@config/firebase';
-import { COLLECTIONS, STORAGE_PATHS, JOB_TYPES, WORK_MODES, JOB_TYPE_LABELS } from '@config/constants';
+import { COLLECTIONS, STORAGE_PATHS, JOB_TYPES, WORK_MODES, JOB_TYPE_LABELS, BRANCHES } from '@config/constants';
 import { useAuth } from '@context/AuthContext';
+import toast from 'react-hot-toast';
 
 // Constants for form options
-const DEPARTMENTS = [
-    'Engineering',
-    'Product',
-    'Design',
-    'Marketing',
-    'Sales',
-    'Human Resources',
-    'Finance',
-    'Operations',
-    'Data Science',
-    'Customer Success',
+const JOB_POSITIONS = [
+    'Software Developer',
+    'Data Analyst',
+    'Designer',
+    'Manager',
+    'Business Analyst',
+    'Consultant',
+    'Engineer',
+    'Executive',
+    'Intern',
+    'Trainee',
+    'Research Associate',
+    'Other',
 ];
 
-const BRANCHES = [
-    'Computer Science',
-    'Information Technology',
-    'Electronics',
-    'Electrical',
-    'Mechanical',
-    'Civil',
-    'Chemical',
-    'Biotechnology',
-    'MBA',
-    'MCA',
-];
+// BRANCHES imported from @config/constants
 
 const SELECTION_PROCESS_OPTIONS = [
     'Resume Screening',
@@ -117,6 +109,67 @@ const MultiSelectField = ({ label, name, options, required, control, setValue, e
     );
 };
 
+// Dropdown Multi-Select Component — select from dropdown, shows tags below
+const DropdownMultiSelect = ({ label, name, options, required, control, setValue, errors }) => {
+    const selectedValues = useWatch({ control, name }) || [];
+
+    const handleSelect = (e) => {
+        const value = e.target.value;
+        if (value && !selectedValues.includes(value)) {
+            setValue(name, [...selectedValues, value], { shouldValidate: false });
+        }
+        e.target.value = ''; // reset dropdown
+    };
+
+    const removeTag = (option) => {
+        setValue(name, selectedValues.filter((v) => v !== option), { shouldValidate: false });
+    };
+
+    const availableOptions = options.filter((opt) => !selectedValues.includes(opt));
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <select
+                onChange={handleSelect}
+                defaultValue=""
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+            >
+                <option value="" disabled>Select a position...</option>
+                {availableOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                ))}
+            </select>
+            {selectedValues.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedValues.map((val) => (
+                        <span
+                            key={val}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full"
+                        >
+                            {val}
+                            <button
+                                type="button"
+                                onClick={() => removeTag(val)}
+                                className="ml-0.5 hover:text-blue-600 focus:outline-none"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+            {required && selectedValues.length === 0 && errors?.[name] && (
+                <p className="text-sm text-red-500">Please select at least one position</p>
+            )}
+        </div>
+    );
+};
+
 const PostJob = () => {
     const navigate = useNavigate();
     const { user, userProfile } = useAuth();
@@ -161,7 +214,7 @@ const PostJob = () => {
             jobType: JOB_TYPES.FULL_TIME,
             workMode: WORK_MODES.ONSITE,
             location: '',
-            department: '',
+            positions: [],
             openings: 1,
             roleOverview: '',
             responsibilities: '',
@@ -270,7 +323,7 @@ const PostJob = () => {
                 jobType: data.jobType,
                 workMode: data.workMode,
                 location: data.location,
-                department: data.department,
+                positions: data.positions || [],
                 openings: parseInt(data.openings, 10) || 1,
 
                 description: {
@@ -333,8 +386,9 @@ const PostJob = () => {
             await addDoc(collection(db, COLLECTIONS.JOBS), jobDocument);
 
             setSubmitSuccess(true);
+            toast.success(isDraft ? 'Job saved as draft!' : 'Job published successfully!');
             setTimeout(() => {
-                navigate('/recruiter/manage-jobs');
+                navigate('/recruiter/jobs');
             }, 1500);
         } catch (error) {
             console.error('Error posting job:', error);
@@ -513,8 +567,10 @@ const PostJob = () => {
                             ]}
                         />
                         <InputField label="Location" name="location" required placeholder="e.g., Bangalore, India" />
-                        <SelectField label="Department" name="department" required options={DEPARTMENTS} />
                         <InputField label="Number of Openings" name="openings" type="number" required placeholder="1" />
+                    </div>
+                    <div className="mt-6">
+                        <DropdownMultiSelect label="Positions / Roles" name="positions" options={JOB_POSITIONS} required control={control} setValue={setValue} errors={errors} />
                     </div>
                 </SectionCard>
 

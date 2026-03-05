@@ -52,6 +52,14 @@ const JobsList = () => {
 
     // Apply client-side filters
     const filteredJobs = jobs.filter((job) => {
+        // Branch eligibility filter — hide jobs the student's branch is not eligible for
+        const eligibleBranches = job.eligibility?.branches;
+        if (eligibleBranches && eligibleBranches.length > 0 && userProfile?.branch) {
+            if (!eligibleBranches.includes(userProfile.branch)) {
+                return false;
+            }
+        }
+
         // Job type filter
         if (filters.jobType && job.jobType !== filters.jobType) {
             return false;
