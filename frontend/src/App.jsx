@@ -12,6 +12,7 @@ import LandingPage from '@pages/public/LandingPage';
 import LoginPage from '@pages/auth/LoginPage';
 import RegisterPage from '@pages/auth/RegisterPage';
 import ForgotPasswordPage from '@pages/auth/ForgotPasswordPage';
+import VerifyOTP from '@pages/auth/VerifyOTP';
 
 // Student Pages
 import StudentDashboard from '@pages/student/Dashboard';
@@ -111,6 +112,7 @@ function App() {
                     element={user && userProfile ? <Navigate to={getDefaultRoute()} replace /> : <RegisterPage />}
                 />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/verify-otp/:uid" element={<VerifyOTP />} />
             </Route>
 
             {/* Student Routes */}

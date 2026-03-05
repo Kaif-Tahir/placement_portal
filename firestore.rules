@@ -123,6 +123,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // OTP Verification collection (for email verification during signup)
+    // Allows unauthenticated access since user doesn't exist yet
+    match /otpVerification/{pendingId} {
+      // Allow create for signup (before user is authenticated)
+      allow create: if true;
+      // Allow read/update for OTP verification and resend
+      allow read, update: if true;
+      // Allow delete after verification or expiry
+      allow delete: if true;
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
