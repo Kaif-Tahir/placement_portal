@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     BriefcaseIcon,
     DocumentTextIcon,
@@ -9,6 +10,15 @@ import {
 
 const StudentDashboard = () => {
     const { userProfile } = useAuth();
+    const navigate = useNavigate();
+    const [showProfileModal, setShowProfileModal] = useState(false);
+
+    // Show complete-profile modal for new students whose profile isn't completed
+    useEffect(() => {
+        if (userProfile && userProfile.role === 'student' && userProfile.profileCompleted === false) {
+            setShowProfileModal(true);
+        }
+    }, [userProfile]);
 
     const stats = [
         { name: 'Applications', value: '0', icon: DocumentTextIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -80,6 +90,55 @@ const StudentDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ── Complete Profile Modal ── */}
+            {showProfileModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-[modalIn_0.35s_ease-out]">
+                        {/* Gradient top strip */}
+                        <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+                        <div className="p-8 text-center">
+                            {/* Icon */}
+                            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-5">
+                                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900">Complete Your Profile</h2>
+                            <p className="text-gray-500 mt-2 text-sm leading-relaxed">
+                                Recruiters prefer students with complete profiles. Add your skills,
+                                projects, and achievements to stand out!
+                            </p>
+
+                            <div className="mt-7 flex flex-col gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowProfileModal(false);
+                                        navigate('/student/profile?edit=true');
+                                    }}
+                                    className="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-200/50"
+                                >
+                                    Complete Profile Now
+                                </button>
+                                <button
+                                    onClick={() => setShowProfileModal(false)}
+                                    className="w-full px-5 py-2.5 text-gray-500 hover:text-gray-700 text-sm font-medium transition-colors"
+                                >
+                                    I&apos;ll do it later
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>{`
+                        @keyframes modalIn {
+                            0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+                            100% { transform: scale(1) translateY(0); opacity: 1; }
+                        }
+                    `}</style>
+                </div>
+            )}
         </div>
     );
 };

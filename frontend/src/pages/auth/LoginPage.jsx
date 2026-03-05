@@ -55,9 +55,9 @@ const LoginPage = () => {
             <div className="max-w-md w-full space-y-8">
                 <div>
                     <div className="flex justify-center">
-                        <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
+                        <Link to="/" className="w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center hover:shadow-lg transition-shadow" title="Go to Home">
                             <span className="text-white font-bold text-2xl">C</span>
-                        </div>
+                        </Link>
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-display font-bold text-gray-900">
                         Welcome Back
@@ -135,7 +135,7 @@ const LoginPage = () => {
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
 
-                    <div className="text-center">
+                    <div className="text-center space-y-2">
                         <span className="text-sm text-gray-600">
                             Don&apos;t have an account?{' '}
                             <Link
@@ -145,6 +145,15 @@ const LoginPage = () => {
                                 Sign up
                             </Link>
                         </span>
+                        <div>
+                            <Link
+                                to="/"
+                                className="text-sm text-gray-500 hover:text-primary-600 transition-colors inline-flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                Back to Home
+                            </Link>
+                        </div>
                     </div>
                 </form>
             </div>

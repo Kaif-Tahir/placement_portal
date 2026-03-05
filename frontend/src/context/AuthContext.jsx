@@ -90,6 +90,7 @@ export const AuthProvider = ({ children }) => {
                 await setDoc(doc(db, COLLECTIONS.STUDENTS, newUser.uid), {
                     uid: newUser.uid,
                     ...userData.studentData,
+                    profileCompleted: false,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 });
@@ -98,6 +99,7 @@ export const AuthProvider = ({ children }) => {
                     uid: newUser.uid,
                     ...userData.recruiterData,
                     isVerified: false,
+                    profileCompleted: false,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 });

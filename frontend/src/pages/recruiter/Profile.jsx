@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@config/firebase';
@@ -35,11 +36,13 @@ const COMPANY_SIZE_OPTIONS = [
 
 const RecruiterProfile = () => {
     const { user, userProfile, refreshUserProfile } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isEditMode, setIsEditMode] = useState(false);
     const [loading, setLoading] = useState(false);
     const [profileLoading, setProfileLoading] = useState(true);
     const [logoUploading, setLogoUploading] = useState(false);
     const [profileData, setProfileData] = useState(null);
+    const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
     const [formData, setFormData] = useState({
         companyName: '',
@@ -56,6 +59,14 @@ const RecruiterProfile = () => {
         headquarters: '',
         benefits: '',
     });
+
+    // Auto-enter edit mode if ?edit=true is in URL
+    useEffect(() => {
+        if (searchParams.get('edit') === 'true') {
+            setIsEditMode(true);
+            setSearchParams({}, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     // Fetch recruiter profile data
     useEffect(() => {
@@ -143,6 +154,7 @@ const RecruiterProfile = () => {
             const docRef = doc(db, COLLECTIONS.RECRUITERS, user.uid);
             await updateDoc(docRef, {
                 ...formData,
+                profileCompleted: true,
                 updatedAt: new Date().toISOString(),
             });
 
@@ -156,7 +168,10 @@ const RecruiterProfile = () => {
             setProfileData({ ...profileData, ...formData });
             setIsEditMode(false);
             if (refreshUserProfile) await refreshUserProfile();
-            toast.success('Profile updated successfully');
+
+            // Show success animation
+            setShowSuccessAnimation(true);
+            setTimeout(() => setShowSuccessAnimation(false), 3000);
         } catch (error) {
             console.error('Error updating profile:', error);
             toast.error('Failed to update profile');
@@ -193,6 +208,46 @@ const RecruiterProfile = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-4 text-gray-600">Loading profile...</p>
                 </div>
+            </div>
+        );
+    }
+
+    // ─── SUCCESS ANIMATION OVERLAY ───────────────────────────
+    if (showSuccessAnimation) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center animate-[scaleIn_0.4s_ease-out]">
+                    <div className="relative w-24 h-24 mb-5">
+                        <svg viewBox="0 0 96 96" className="w-full h-full">
+                            <circle
+                                cx="48" cy="48" r="44"
+                                fill="none" stroke="#22c55e" strokeWidth="4"
+                                strokeDasharray="276.5" strokeDashoffset="276.5"
+                                className="animate-[circleIn_0.6s_ease-out_forwards]"
+                            />
+                            <path
+                                d="M28 50 L42 64 L68 34"
+                                fill="none" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"
+                                strokeDasharray="60" strokeDashoffset="60"
+                                className="animate-[checkIn_0.4s_ease-out_0.5s_forwards]"
+                            />
+                        </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">Profile Completed!</h3>
+                    <p className="text-gray-500 mt-2 text-center">Your company profile has been updated successfully</p>
+                </div>
+                <style>{`
+                    @keyframes scaleIn {
+                        0% { transform: scale(0.7); opacity: 0; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes circleIn {
+                        to { stroke-dashoffset: 0; }
+                    }
+                    @keyframes checkIn {
+                        to { stroke-dashoffset: 0; }
+                    }
+                `}</style>
             </div>
         );
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@context/AuthContext';
 import { subscribeToRecruiterJobs } from '@services/jobService';
 import { subscribeToRecruiterApplications } from '@services/applicationService';
@@ -7,11 +7,20 @@ import { APPLICATION_STATUS, STATUS_LABELS, STATUS_COLORS } from '@config/consta
 
 const RecruiterDashboard = () => {
   const { user, userProfile } = useAuth();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const jobIdsRef = useRef([]);
   const appUnsubRef = useRef(null);
+
+  // Show complete-profile modal for new recruiters whose profile isn't completed
+  useEffect(() => {
+    if (userProfile && userProfile.role === 'recruiter' && userProfile.profileCompleted === false) {
+      setShowProfileModal(true);
+    }
+  }, [userProfile]);
 
   // Subscribe to recruiter's jobs in real-time
   useEffect(() => {
@@ -287,6 +296,51 @@ const RecruiterDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* ── Complete Profile Modal ── */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-[modalIn_0.35s_ease-out]">
+            <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-5">
+                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Complete Your Company Profile</h2>
+              <p className="text-gray-500 mt-2 text-sm leading-relaxed">
+                Students look for detailed company profiles. Add your company info,
+                industry, description and logo to attract top talent!
+              </p>
+              <div className="mt-7 flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    navigate('/recruiter/profile?edit=true');
+                  }}
+                  className="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-200/50"
+                >
+                  Complete Profile Now
+                </button>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="w-full px-5 py-2.5 text-gray-500 hover:text-gray-700 text-sm font-medium transition-colors"
+                >
+                  I&apos;ll do it later
+                </button>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modalIn {
+              0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+              100% { transform: scale(1) translateY(0); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 };

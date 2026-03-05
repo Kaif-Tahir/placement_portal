@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@config/firebase';
-import { COLLECTIONS, STORAGE_PATHS, JOB_TYPES, WORK_MODES, JOB_TYPE_LABELS, BRANCHES } from '@config/constants';
+import { db } from '@config/firebase';
+import { COLLECTIONS, JOB_TYPES, WORK_MODES, JOB_TYPE_LABELS, BRANCHES } from '@config/constants';
+import { uploadPdfToCloudinary } from '@services/cloudinaryService';
 import { useAuth } from '@context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -262,12 +262,13 @@ const PostJob = () => {
         }
     }, [userProfile, setValue]);
 
-    // Handle file uploads to Firebase Storage
-    const uploadFile = async (file, path) => {
+    // Handle file uploads to Cloudinary
+    const uploadFile = async (file, folder, progressKey) => {
         if (!file) return null;
-        const storageRef = ref(storage, `${STORAGE_PATHS.JOB_ATTACHMENTS}/${path}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        return await getDownloadURL(storageRef);
+        const result = await uploadPdfToCloudinary(file, folder, (pct) => {
+            // Optional: could use pct for a progress bar in the future
+        });
+        return result.url;
     };
 
     // Handle file selection
@@ -293,22 +294,22 @@ const PostJob = () => {
             setIsUploading(true);
             let attachmentUrls = {};
 
-            // Upload job description PDF
+            // Upload job description PDF to Cloudinary
             if (attachments.jobDescriptionPDF) {
                 setUploadProgress((prev) => ({ ...prev, jd: true }));
                 attachmentUrls.jobDescriptionPDF = await uploadFile(
                     attachments.jobDescriptionPDF,
-                    `${user.uid}/job-descriptions`
+                    `job-attachments/${user.uid}/job-descriptions`
                 );
                 setUploadProgress((prev) => ({ ...prev, jd: false }));
             }
 
-            // Upload company brochure
+            // Upload company brochure to Cloudinary
             if (attachments.companyBrochure) {
                 setUploadProgress((prev) => ({ ...prev, brochure: true }));
                 attachmentUrls.companyBrochure = await uploadFile(
                     attachments.companyBrochure,
-                    `${user.uid}/brochures`
+                    `job-attachments/${user.uid}/brochures`
                 );
                 setUploadProgress((prev) => ({ ...prev, brochure: false }));
             }

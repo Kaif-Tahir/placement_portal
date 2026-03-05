@@ -251,10 +251,12 @@ const JobDetails = () => {
                             <span
                                 className={`px-3 py-1 rounded-full text-sm font-medium ${job.status === 'active'
                                     ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
+                                    : job.status === 'recruitment_completed'
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-gray-100 text-gray-800'
                                     }`}
                             >
-                                {job.status === 'active' ? 'Active' : 'Closed'}
+                                {job.status === 'active' ? 'Active' : job.status === 'recruitment_completed' ? 'Recruitment Completed' : 'Closed'}
                             </span>
                         </div>
                         <p className="text-lg text-gray-700 font-medium">{job.companyName}</p>

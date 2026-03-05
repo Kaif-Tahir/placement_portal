@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@config/firebase';
@@ -7,8 +8,10 @@ import { BRANCHES } from '@config/constants';
 import toast from 'react-hot-toast';
 
 const StudentProfile = () => {
-    const { user, userProfile } = useAuth();
+    const { user, userProfile, refreshUserProfile } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
     const [loading, setLoading] = useState(false);
     const [profileLoading, setProfileLoading] = useState(true);
     const [profileData, setProfileData] = useState(null);
@@ -35,6 +38,15 @@ const StudentProfile = () => {
 
     const [projectInput, setProjectInput] = useState({ title: '', description: '', link: '' });
     const [achievementInput, setAchievementInput] = useState({ title: '', description: '', date: '' });
+
+    // Auto-enter edit mode if ?edit=true is in URL
+    useEffect(() => {
+        if (searchParams.get('edit') === 'true') {
+            setIsEditMode(true);
+            // Clean up the URL param so it doesn't persist
+            setSearchParams({}, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     // Fetch student profile data
     useEffect(() => {
@@ -254,6 +266,7 @@ const StudentProfile = () => {
                 aboutMe: formData.aboutMe,
                 projects: formData.projects,
                 achievements: formData.achievements,
+                profileCompleted: true,
                 updatedAt: new Date(),
             });
 
@@ -264,7 +277,13 @@ const StudentProfile = () => {
             setPhotoPreview(photoUrl);
             setProfilePhoto(null);
             setIsEditMode(false);
-            toast.success('Profile updated successfully');
+
+            // Show success animation
+            setShowSuccessAnimation(true);
+            setTimeout(() => setShowSuccessAnimation(false), 3000);
+
+            // Refresh the auth profile so profileCompleted is updated
+            if (refreshUserProfile) await refreshUserProfile();
         } catch (error) {
             console.error('Error updating profile:', error);
             toast.error('Failed to update profile');
@@ -291,6 +310,49 @@ const StudentProfile = () => {
         (formData.skills.length > 0 ? 20 : 0) +
         (formData.projects.length > 0 ? 20 : 0) +
         (formData.achievements.length > 0 ? 20 : 0);
+
+    // ─── SUCCESS ANIMATION OVERLAY ───────────────────────────
+    if (showSuccessAnimation) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-3xl shadow-2xl p-10 flex flex-col items-center animate-[scaleIn_0.4s_ease-out]">
+                    {/* Animated tick circle */}
+                    <div className="relative w-24 h-24 mb-5">
+                        <svg viewBox="0 0 96 96" className="w-full h-full">
+                            <circle
+                                cx="48" cy="48" r="44"
+                                fill="none" stroke="#22c55e" strokeWidth="4"
+                                strokeDasharray="276.5" strokeDashoffset="276.5"
+                                className="animate-[circleIn_0.6s_ease-out_forwards]"
+                            />
+                            <path
+                                d="M28 50 L42 64 L68 34"
+                                fill="none" stroke="#22c55e" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"
+                                strokeDasharray="60" strokeDashoffset="60"
+                                className="animate-[checkIn_0.4s_ease-out_0.5s_forwards]"
+                            />
+                        </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">Profile Completed!</h3>
+                    <p className="text-gray-500 mt-2 text-center">Your profile has been updated successfully</p>
+                </div>
+
+                {/* Keyframes injected via style tag */}
+                <style>{`
+                    @keyframes scaleIn {
+                        0% { transform: scale(0.7); opacity: 0; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes circleIn {
+                        to { stroke-dashoffset: 0; }
+                    }
+                    @keyframes checkIn {
+                        to { stroke-dashoffset: 0; }
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     // ─── VIEW MODE ─────────────────────────────────────────────
     if (!isEditMode) {
