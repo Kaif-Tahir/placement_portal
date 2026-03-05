@@ -19,7 +19,7 @@ const RegisterPage = () => {
         designation: '',
     });
     const [loading, setLoading] = useState(false);
-    const { signUp } = useAuth();
+    const { signUpWithOTP } = useAuth();
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -48,6 +48,13 @@ const RegisterPage = () => {
             return;
         }
 
+        // Email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email.trim())) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+
         setLoading(true);
         try {
             const userData = {
@@ -67,17 +74,11 @@ const RegisterPage = () => {
                 };
             }
 
-            const newUser = await signUp(formData.email, formData.password, userData);
-            toast.success('Account created successfully!');
-            
-            // Navigate to appropriate dashboard based on role
-            if (formData.role === USER_ROLES.STUDENT) {
-                navigate('/student/dashboard');
-            } else if (formData.role === USER_ROLES.RECRUITER) {
-                navigate('/recruiter/dashboard');
-            } else if (formData.role === USER_ROLES.ADMIN) {
-                navigate('/admin/dashboard');
-            }
+            const result = await signUpWithOTP(formData.email.trim(), formData.password, userData);
+            toast.success('OTP sent to your email! Please verify.');
+
+            // Navigate to OTP verification page
+            navigate(`/verify-otp/${result.uid}`);
         } catch (error) {
             console.error('Registration error:', error);
             toast.error(error.message || 'Failed to create account');
@@ -113,8 +114,8 @@ const RegisterPage = () => {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, role: USER_ROLES.STUDENT })}
                                     className={`p-4 border-2 rounded-lg text-center transition-all ${formData.role === USER_ROLES.STUDENT
-                                            ? 'border-primary-600 bg-primary-50 text-primary-700'
-                                            : 'border-gray-300 hover:border-gray-400'
+                                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                                        : 'border-gray-300 hover:border-gray-400'
                                         }`}
                                 >
                                     <div className="font-semibold">Student</div>
@@ -124,8 +125,8 @@ const RegisterPage = () => {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, role: USER_ROLES.RECRUITER })}
                                     className={`p-4 border-2 rounded-lg text-center transition-all ${formData.role === USER_ROLES.RECRUITER
-                                            ? 'border-primary-600 bg-primary-50 text-primary-700'
-                                            : 'border-gray-300 hover:border-gray-400'
+                                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                                        : 'border-gray-300 hover:border-gray-400'
                                         }`}
                                 >
                                     <div className="font-semibold">Recruiter</div>

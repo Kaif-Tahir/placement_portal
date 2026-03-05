@@ -76,6 +76,7 @@ export const COLLECTIONS = {
     NOTIFICATIONS: 'notifications',
     REPORTS: 'reports',
     ANALYTICS: 'analytics',
+    OTP_VERIFICATION: 'otpVerification',
 };
 
 // Storage Paths
