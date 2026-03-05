@@ -41,16 +41,6 @@ const PublicLayout = () => {
             <main>
                 <Outlet />
             </main>
-
-            {/* Footer */}
-            <footer className="bg-white border-t mt-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="text-center text-gray-600">
-                        <p>&copy; {new Date().getFullYear()} CareerOS. All rights reserved.</p>
-                        <p className="mt-2 text-sm">Smart Placement & Internship Management Platform</p>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 };
