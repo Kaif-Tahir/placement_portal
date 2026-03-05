@@ -91,4 +91,62 @@
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
     }
+
+    /* Marquee Animation for Company Logos */
+    .marquee-container {
+        @apply overflow-hidden relative;
+    }
+
+    .marquee-container::before,
+    .marquee-container::after {
+        content: '';
+        @apply absolute top-0 bottom-0 w-24 z-10 pointer-events-none;
+    }
+
+    .marquee-container::before {
+        @apply left-0;
+        background: linear-gradient(to right, rgb(249 250 251) 0%, transparent 100%);
+    }
+
+    .marquee-container::after {
+        @apply right-0;
+        background: linear-gradient(to left, rgb(249 250 251) 0%, transparent 100%);
+    }
+
+    .marquee-track {
+        @apply flex gap-12 items-center;
+        width: max-content;
+    }
+
+    .marquee-left-to-right {
+        animation: scrollLeftToRight 40s linear infinite;
+    }
+
+    .marquee-right-to-left {
+        animation: scrollRightToLeft 40s linear infinite;
+    }
+
+    .marquee-container:hover .marquee-track {
+        animation-play-state: paused;
+    }
+
+    @keyframes scrollLeftToRight {
+        0% {
+            transform: translateX(-50%);
+        }
+
+        100% {
+            transform: translateX(0%);
+        }
+    }
+
+    @keyframes scrollRightToLeft {
+        0% {
+            transform: translateX(0%);
+        }
+
+        100% {
+            transform: translateX(-50%);
+        }
+    }
 }
