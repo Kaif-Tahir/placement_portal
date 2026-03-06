@@ -74,7 +74,7 @@ export const uploadPdfToCloudinary = (file, folder, onProgress) => {
             formData.append('file', file);
             formData.append('upload_preset', uploadPreset);
             formData.append('folder', folder);
-            formData.append('public_id', `${Date.now()}_${file.name.replace(/\.[^/.]+$/, '')}`);
+            formData.append('public_id', `${Date.now()}_${file.name.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_').trim()}`);
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', endpoint);

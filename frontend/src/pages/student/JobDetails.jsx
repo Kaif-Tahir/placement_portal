@@ -4,6 +4,7 @@ import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp
 import { db } from '@config/firebase';
 import { COLLECTIONS, JOB_TYPE_LABELS, WORK_MODES, APPLICATION_STATUS } from '@config/constants';
 import { useAuth } from '@context/AuthContext';
+import ATSScoreChecker from '@components/ATSScoreChecker';
 import toast from 'react-hot-toast';
 
 const JobDetails = () => {
@@ -575,6 +576,23 @@ const JobDetails = () => {
                             </div>
                         </Section>
                     )}
+
+                    {/* ATS Score Checker */}
+                    <ATSScoreChecker
+                        job={job}
+                        studentProfile={{
+                            fullName: userProfile?.fullName || '',
+                            email: user?.email || '',
+                            branch: studentData?.branch || userProfile?.branch || '',
+                            cgpa: studentData?.cgpa || '',
+                            skills: studentData?.skills || [],
+                            aboutMe: studentData?.aboutMe || '',
+                            projects: studentData?.projects || [],
+                            achievements: studentData?.achievements || [],
+                        }}
+                        userId={user?.uid}
+                        hasResume={!!(studentData?.resume?.url || userProfile?.resumeUrl)}
+                    />
                 </div>
             </div>
 
